@@ -9,6 +9,9 @@ class DatosInvalidosError(Exception):
 class ServicioNoDisponibleError(Exception):
     pass
 
+class ReservaError(Exception):
+    pass
+
 # -------------------------------
 # Clase abstracta base
 # -------------------------------
@@ -34,7 +37,7 @@ class Cliente(Entidad):
     def validar_datos(self):
         if "@" not in self.__correo:
             raise DatosInvalidosError("Correo inválido.")
-        if len(self.__telefono) < 7:
+        if not self.__telefono.isdigit() or len(self.__telefono) < 7:
             raise DatosInvalidosError("Teléfono inválido.")
 
     def mostrar_info(self):
@@ -45,7 +48,7 @@ class Cliente(Entidad):
 # -------------------------------
 class Servicio(Entidad):
     @abstractmethod
-    def calcular_costo(self):
+    def calcular_costo(self, *args, **kwargs):
         pass
 
 # -------------------------------
@@ -56,16 +59,24 @@ class ReservaSala(Servicio):
         super().__init__(id, nombre)
         self.horas = horas
 
-    def calcular_costo(self):
-        return self.horas * 50000
+    def calcular_costo(self, impuestos=0):
+        base = self.horas * 50000
+        return base + (base * impuestos)
+
+    def mostrar_info(self):
+        return f"Servicio: {self._nombre}, Horas: {self.horas}"
 
 class AlquilerEquipo(Servicio):
     def __init__(self, id, nombre, dias):
         super().__init__(id, nombre)
         self.dias = dias
 
-    def calcular_costo(self):
-        return self.dias * 80000
+    def calcular_costo(self, descuento=0):
+        base = self.dias * 80000
+        return base - (base * descuento)
+
+    def mostrar_info(self):
+        return f"Servicio: {self._nombre}, Días: {self.dias}"
 
 class AsesoriaEspecializada(Servicio):
     def __init__(self, id, nombre, nivel):
@@ -74,7 +85,12 @@ class AsesoriaEspecializada(Servicio):
 
     def calcular_costo(self):
         tarifas = {"básico": 100000, "avanzado": 200000}
-        return tarifas.get(self.nivel, 0)
+        if self.nivel not in tarifas:
+            raise ServicioNoDisponibleError("Nivel de asesoría no disponible.")
+        return tarifas[self.nivel]
+
+    def mostrar_info(self):
+        return f"Servicio: {self._nombre}, Nivel: {self.nivel}"
 
 # -------------------------------
 # Clase Reserva
@@ -89,10 +105,15 @@ class Reserva:
         try:
             costo = self.servicio.calcular_costo()
             self.estado = "Confirmada"
-            print(f"Reserva confirmada. Costo: ${costo}")
+            print(f"Reserva confirmada para {self.cliente._nombre}. Costo: ${costo}")
         except Exception as e:
             self.estado = "Error"
             self.registrar_error(e)
+            print(f"Error al confirmar reserva: {e}")
+
+    def cancelar(self):
+        self.estado = "Cancelada"
+        print(f"Reserva cancelada para {self.cliente._nombre}")
 
     def registrar_error(self, error):
         with open("logs/errores.log", "a") as log:
@@ -102,12 +123,37 @@ class Reserva:
 # Simulación de operaciones
 # -------------------------------
 if __name__ == "__main__":
-    try:
-        cliente1 = Cliente(1, "Ana", "ana@mail.com", "3124567890")
-        servicio1 = ReservaSala(101, "Sala de reuniones", 3)
-        reserva1 = Reserva(cliente1, servicio1)
-        reserva1.confirmar()
+    # Crear carpeta logs si no existe
+    import os
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
-        cliente2 = Cliente(2, "Luis", "luismail.com", "123")  # Error intencional
+    print("=== Simulación Sistema Integral ===")
+
+    # Operaciones válidas
+    cliente1 = Cliente(1, "Ana", "ana@mail.com", "3124567890")
+    cliente2 = Cliente(2, "Luis", "luis@mail.com", "3209876543")
+
+    servicio1 = ReservaSala(101, "Sala de reuniones", 3)
+    servicio2 = AlquilerEquipo(102, "Proyector", 2)
+    servicio3 = AsesoriaEspecializada(103, "Consultoría TI", "avanzado")
+
+    reserva1 = Reserva(cliente1, servicio1)
+    reserva1.confirmar()
+
+    reserva2 = Reserva(cliente2, servicio2)
+    reserva2.confirmar()
+
+    # Operaciones inválidas
+    try:
+        cliente_err = Cliente(3, "Pedro", "pedromail.com", "123")
     except DatosInvalidosError as e:
-        print(f"Error detectado: {e}")
+        print(f"Error cliente: {e}")
+
+    try:
+        servicio_err = AsesoriaEspecializada(104, "Consultoría TI", "premium")
+        reserva_err = Reserva(cliente1, servicio_err)
+        reserva_err.confirmar()
+    except ServicioNoDisponibleError as e:
+        print(f"Error servicio: {e}")
+
