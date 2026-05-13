@@ -34,7 +34,4 @@ Toda la información se maneja mediante **objetos, listas internas y archivos de
 
 ---
 
-## 🚀 Ejecución
-1. Clonar el repositorio:
-   ```bash
-   git clone https://github.com/usuario/sistema-integral.git
+
